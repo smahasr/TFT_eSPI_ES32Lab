@@ -1,5 +1,4 @@
 // See SetupX_Template.h for all options available
-#define USER_SETUP_ID 12
 
 //Setup file for the M5Stack Basic Core
 

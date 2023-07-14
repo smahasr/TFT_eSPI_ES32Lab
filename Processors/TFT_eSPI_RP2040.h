@@ -22,15 +22,10 @@
 // Processor ID reported by getSetup()
 #define PROCESSOR_ID 0x2040
 
-// Transactions always supported
-#ifndef SUPPORT_TRANSACTIONS
-  #define SUPPORT_TRANSACTIONS
-#endif
-
 // Include processor specific header
 // None
 
-#if defined (TFT_PARALLEL_8_BIT) || defined (TFT_PARALLEL_16_BIT) || defined (RP2040_PIO_SPI)
+#if defined (TFT_PARALLEL_8_BIT) || defined (RP2040_PIO_SPI)
   #define RP2040_PIO_INTERFACE
   #define RP2040_PIO_PUSHBLOCK
 #endif
@@ -80,37 +75,18 @@
   #endif
 #else
 
-  // Different controllers have different minimum write cycle periods, so the PIO clock is changed accordingly
-  // The PIO clock is a division of the CPU clock so scales when the processor is overclocked
-  // PIO write frequency = (CPU clock/(4 * RP2040_PIO_CLK_DIV))
-  // The write cycle periods below assume a 125MHz CPU clock speed
-  #if defined (TFT_PARALLEL_8_BIT) || defined (TFT_PARALLEL_16_BIT)
-    #if defined (RP2040_PIO_CLK_DIV)
-      #if (RP2040_PIO_CLK_DIV > 0)
-        #define DIV_UNITS RP2040_PIO_CLK_DIV
-        #define DIV_FRACT 0
-      #else
-        #define DIV_UNITS 3
-        #define DIV_FRACT 0
-      #endif
-    #elif defined (TFT_PARALLEL_16_BIT)
-      // Different display drivers have different minimum write cycle times
-      #if defined (HX8357C_DRIVER) || defined (SSD1963_DRIVER)
-        #define DIV_UNITS 1 // 32ns write cycle time SSD1963, HX8357C (maybe HX8357D?)
-      #elif defined (ILI9486_DRIVER) || defined (HX8357B_DRIVER) || defined (HX8357D_DRIVER)
-        #define DIV_UNITS 2 // 64ns write cycle time ILI9486, HX8357D, HX8357B
-      #else // ILI9481 needs a slower cycle time
-        #define DIV_UNITS 3 // 96ns write cycle time
-      #endif
-      #define DIV_FRACT 0
-    #else // 8 bit parallel mode default 64ns write cycle time
-      #define DIV_UNITS 2
-      #define DIV_FRACT 0 // Note: Fractional values done with clock period dithering
-    #endif
+  // ILI9481 needs a slower cycle time
+  // Byte rate = (CPU clock/(4 * divider))
+  #ifdef ILI9481_DRIVER
+    #define DIV_UNITS 1
+    #define DIV_FRACT 160
+  #else
+    #define DIV_UNITS 1
+    #define DIV_FRACT 0
   #endif
 
   // Initialise TFT data bus
-  #if defined (TFT_PARALLEL_8_BIT) || defined (TFT_PARALLEL_16_BIT)
+  #if defined (TFT_PARALLEL_8_BIT)
     #define INIT_TFT_DATA_BUS pioinit(DIV_UNITS, DIV_FRACT);
   #elif defined (RP2040_PIO_SPI)
     #define INIT_TFT_DATA_BUS pioinit(SPI_FREQUENCY);
@@ -125,7 +101,7 @@
 
 
 // If smooth fonts are enabled the filing system may need to be loaded
-#if defined (SMOOTH_FONT) && !defined (ARDUINO_ARCH_MBED)
+#ifdef SMOOTH_FONT
   // Call up the filing system for the anti-aliased fonts
   //#define FS_NO_GLOBALS
   #include <FS.h>
@@ -152,10 +128,10 @@
     // PIO takes control of TFT_DC
     // Must wait for data to flush through before changing DC line
     #define DC_C  WAIT_FOR_STALL; \
-                  tft_pio->sm[pio_sm].instr = pio_instr_clr_dc
+                  pio->sm[pio_sm].instr = pio_instr_clr_dc
 
     // Flush has happened before this and mode changed back to 16 bit
-    #define DC_D  tft_pio->sm[pio_sm].instr = pio_instr_set_dc
+    #define DC_D  pio->sm[pio_sm].instr = pio_instr_set_dc
   #endif
 #endif
 
@@ -184,26 +160,14 @@
 // Make sure TFT_RD is defined if not used to avoid an error message
 ////////////////////////////////////////////////////////////////////////////////////////
 // At the moment read is not supported for parallel mode, tie TFT signal high
-#ifdef TFT_RD
-  #if (TFT_RD >= 0)
-    #define RD_L sio_hw->gpio_clr = (1ul << TFT_RD)
-    //#define RD_L digitalWrite(TFT_WR, LOW)
-    #define RD_H sio_hw->gpio_set = (1ul << TFT_RD)
-    //#define RD_H digitalWrite(TFT_WR, HIGH)
-  #else
-    #define RD_L
-    #define RD_H
-  #endif
-#else
+#ifndef TFT_RD
   #define TFT_RD -1
-  #define RD_L
-  #define RD_H
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////////////
 // Define the WR (TFT Write) pin drive code
 ////////////////////////////////////////////////////////////////////////////////////////
-#if !defined (TFT_PARALLEL_8_BIT) && !defined (TFT_PARALLEL_16_BIT) // SPI
+#if !defined (TFT_PARALLEL_8_BIT) // SPI
   #ifdef TFT_WR
     #define WR_L digitalWrite(TFT_WR, LOW)
     #define WR_H digitalWrite(TFT_WR, HIGH)
@@ -309,23 +273,6 @@
         spi.transfer(0); spi.transfer((C)>>8); \
         spi.transfer(0); spi.transfer((C)>>0)
 
-    #elif  defined (ILI9225_DRIVER) // Needs gaps between commands + data bytes, so use slower transfer functions
-
-      // Warning: these all end in 8 bit SPI mode!
-      #define tft_Write_8(C)      spi.transfer(C);
-
-      #define tft_Write_16(C)     spi.transfer16(C)
-
-      #define tft_Write_16N(C)    spi.transfer16(C)
-
-      #define tft_Write_16S(C)    spi.transfer16((C)<<8 | (C)>>8)
-
-      #define tft_Write_32(C)     spi.transfer16((C)>>16); spi.transfer16(C)
-
-      #define tft_Write_32C(C,D)  spi.transfer16(C); spi.transfer16(D)
-
-      #define tft_Write_32D(C)    spi.transfer16(C); spi.transfer16(C)
-
     #else
 
       // This swaps to 8 bit mode, then back to 16 bit mode
@@ -356,65 +303,33 @@
 
   // Wait for the PIO to stall (SM pull request finds no data in TX FIFO)
   // This is used to detect when the SM is idle and hence ready for a jump instruction
-  #define WAIT_FOR_STALL  tft_pio->fdebug = pull_stall_mask; while (!(tft_pio->fdebug & pull_stall_mask))
+  #define WAIT_FOR_STALL  pio->fdebug = pull_stall_mask; while (!(pio->fdebug & pull_stall_mask))
 
   // Wait until at least "S" locations free
-  #define WAIT_FOR_FIFO_FREE(S) while (((tft_pio->flevel >> (pio_sm * 8)) & 0x000F) > (8-S)){}
+  #define WAIT_FOR_FIFO_FREE(S) while (((pio->flevel >> (pio_sm * 8)) & 0x000F) > (8-S)){}
 
   // Wait until at least 5 locations free
-  #define WAIT_FOR_FIFO_5_FREE while ((tft_pio->flevel) & (0x000c << (pio_sm * 8))){}
+  #define WAIT_FOR_FIFO_5_FREE while ((pio->flevel) & (0x000c << (pio_sm * 8))){}
 
   // Wait until at least 1 location free
-  #define WAIT_FOR_FIFO_1_FREE while ((tft_pio->flevel) & (0x0008 << (pio_sm * 8))){}
+  #define WAIT_FOR_FIFO_1_FREE while ((pio->flevel) & (0x0008 << (pio_sm * 8))){}
 
   // Wait for FIFO to empty (use before swapping to 8 bits)
-  #define WAIT_FOR_FIFO_EMPTY  while(!(tft_pio->fstat & (1u << (PIO_FSTAT_TXEMPTY_LSB + pio_sm))))
+  #define WAIT_FOR_FIFO_EMPTY  while(!(pio->fstat & (1u << (PIO_FSTAT_TXEMPTY_LSB + pio_sm))))
 
   // The write register of the TX FIFO.
-  #define TX_FIFO  tft_pio->txf[pio_sm]
+  #define TX_FIFO  pio->txf[pio_sm]
 
   // Temporary - to be deleted
-  #define GPIO_DIR_MASK 0
+  #define dir_mask 0
 
-  #if  defined (SPI_18BIT_DRIVER) // SPI 18 bit colour
+
       // This writes 8 bits, then switches back to 16 bit mode automatically
       // Have already waited for pio stalled (last data write complete) when DC switched to command mode
       // The wait for stall allows DC to be changed immediately afterwards
-      #define tft_Write_8(C)      tft_pio->sm[pio_sm].instr = pio_instr_jmp8; \
+      #define tft_Write_8(C)      pio->sm[pio_sm].instr = pio_instr_jmp8; \
                                   TX_FIFO = (C); \
                                   WAIT_FOR_STALL
-
-      // Used to send last byte for 32 bit macros below since PIO sends 24 bits
-      #define tft_Write_8L(C)     WAIT_FOR_STALL; \
-                                  tft_pio->sm[pio_sm].instr = pio_instr_jmp8; \
-                                  TX_FIFO = (C)
-
-      // Note: the following macros do not wait for the end of transmission
-
-      #define tft_Write_16(C)     WAIT_FOR_FIFO_FREE(1); TX_FIFO = ((((uint32_t)(C) & 0xF800)<<8) | (((C) & 0x07E0)<<5) | (((C) & 0x001F)<<3))
-
-      #define tft_Write_16N(C)    WAIT_FOR_FIFO_FREE(1); TX_FIFO = ((((uint32_t)(C) & 0xF800)<<8) | (((C) & 0x07E0)<<5) | (((C) & 0x001F)<<3))
-
-      #define tft_Write_16S(C)    WAIT_FOR_FIFO_FREE(1); TX_FIFO = ((((uint32_t)(C) & 0xF8) << 16) | (((C) & 0xE000)>>3) | (((C) & 0x07)<<13) | (((C) & 0x1F00)>>5))
-
-      #define tft_Write_32(C)     WAIT_FOR_FIFO_FREE(2); TX_FIFO = ((C)>>8); WAIT_FOR_STALL; tft_Write_8(C)
-
-      #define tft_Write_32C(C,D)  WAIT_FOR_FIFO_FREE(2); TX_FIFO = (((C)<<8) | ((D)>>8)); tft_Write_8L(D)
-
-      #define tft_Write_32D(C)    WAIT_FOR_FIFO_FREE(2); TX_FIFO = (((C)<<8) | ((C)>>8)); tft_Write_8L(C)
-
-  #else // PIO interface, SPI or parallel
-    // This writes 8 bits, then switches back to 16 bit mode automatically
-    // Have already waited for pio stalled (last data write complete) when DC switched to command mode
-    // The wait for stall allows DC to be changed immediately afterwards
-    #if defined (TFT_PARALLEL_8_BIT) || defined (RP2040_PIO_SPI)
-      #define tft_Write_8(C)      tft_pio->sm[pio_sm].instr = pio_instr_jmp8; \
-                                  TX_FIFO = (C); \
-                                  WAIT_FOR_STALL
-    #else // For 16 bit parallel 16 bits are always sent
-      #define tft_Write_8(C)      TX_FIFO = (C); \
-                                  WAIT_FOR_STALL
-    #endif
 
       // Note: the following macros do not wait for the end of transmission
 
@@ -429,13 +344,8 @@
       #define tft_Write_32C(C,D)  WAIT_FOR_FIFO_FREE(2); TX_FIFO = (C); TX_FIFO = (D)
 
       #define tft_Write_32D(C)    WAIT_FOR_FIFO_FREE(2); TX_FIFO = (C); TX_FIFO = (C)
-  #endif
-#endif
 
-#ifndef tft_Write_16N
-  #define tft_Write_16N tft_Write_16
 #endif
-
 ////////////////////////////////////////////////////////////////////////////////////////
 // Macros to read from display using SPI or software SPI
 ////////////////////////////////////////////////////////////////////////////////////////

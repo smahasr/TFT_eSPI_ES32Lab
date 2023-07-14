@@ -1,5 +1,4 @@
 // See SetupX_Template.h for all options available
-#define USER_SETUP_ID 200
 
 #define GC9A01_DRIVER
 

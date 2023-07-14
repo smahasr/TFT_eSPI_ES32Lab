@@ -108,8 +108,7 @@ void loop() {
 
   tft.fillScreen(TFT_BLACK);
 
-  // The "true" parameter forces background drawing for smooth fonts
-  tft.setTextColor(TFT_GREEN, TFT_BLUE, true); // Change the font colour and the background colour
+  tft.setTextColor(TFT_GREEN, TFT_BLUE); // Change the font colour and the background colour
 
   tft.drawString("36pt font", xpos, ypos);
 
@@ -123,9 +122,6 @@ void loop() {
     tft.drawFloat(i / 10.0, 1, xpos, ypos);
     delay (200);
   }
-
-  // Turn off text padding by setting value to 0
-  tft.setTextPadding(0);
 
   tft.unloadFont(); // Remove the font to recover memory used
 
@@ -142,7 +138,7 @@ void loop() {
 
   tft.fillScreen(TFT_BLACK);
 
-  tft.setTextColor(TFT_DARKGREY, TFT_BLACK, false);
+  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
 
   // Use middle of screen as datum
   xpos = tft.width() /2;

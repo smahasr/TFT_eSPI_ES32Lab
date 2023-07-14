@@ -11,18 +11,16 @@
   #ifdef CONFIG_IDF_TARGET_ESP32
     #ifdef USE_HSPI_PORT
       SPIClass spi = SPIClass(HSPI);
-    #elif defined(USE_FSPI_PORT)
-      SPIClass spi = SPIClass(FSPI);
     #else // use default VSPI port
+      //SPIClass& spi = SPI;
       SPIClass spi = SPIClass(VSPI);
     #endif
   #else
     #ifdef USE_HSPI_PORT
       SPIClass spi = SPIClass(HSPI);
-    #elif defined(USE_FSPI_PORT)
-      SPIClass spi = SPIClass(FSPI);
     #else // use FSPI port
-      SPIClass& spi = SPI;
+      //SPIClass& spi = SPI;
+      SPIClass spi = SPIClass(FSPI);
     #endif
   #endif
 #endif
@@ -34,8 +32,6 @@
     #define DMA_CHANNEL 1
     #ifdef USE_HSPI_PORT
       spi_host_device_t spi_host = HSPI_HOST;
-    #elif defined(USE_FSPI_PORT)
-      spi_host_device_t spi_host = SPI_HOST;
     #else // use VSPI port
       spi_host_device_t spi_host = VSPI_HOST;
     #endif
@@ -133,7 +129,17 @@ uint8_t TFT_eSPI::readByte(void)
 ***************************************************************************************/
 void TFT_eSPI::busDir(uint32_t mask, uint8_t mode)
 {
-  // Arduino generic native function
+  gpioMode(TFT_D0, mode);
+  gpioMode(TFT_D1, mode);
+  gpioMode(TFT_D2, mode);
+  gpioMode(TFT_D3, mode);
+  gpioMode(TFT_D4, mode);
+  gpioMode(TFT_D5, mode);
+  gpioMode(TFT_D6, mode);
+  gpioMode(TFT_D7, mode);
+  return;
+  /*
+  // Arduino generic native function, but slower
   pinMode(TFT_D0, mode);
   pinMode(TFT_D1, mode);
   pinMode(TFT_D2, mode);
@@ -142,6 +148,7 @@ void TFT_eSPI::busDir(uint32_t mask, uint8_t mode)
   pinMode(TFT_D5, mode);
   pinMode(TFT_D6, mode);
   pinMode(TFT_D7, mode);
+  return; //*/
 }
 
 /***************************************************************************************
@@ -150,8 +157,14 @@ void TFT_eSPI::busDir(uint32_t mask, uint8_t mode)
 ***************************************************************************************/
 void TFT_eSPI::gpioMode(uint8_t gpio, uint8_t mode)
 {
-  pinMode(gpio, mode);
-  digitalWrite(gpio, HIGH);
+  if(mode == INPUT) GPIO.enable_w1tc = ((uint32_t)1 << gpio);
+  else GPIO.enable_w1ts = ((uint32_t)1 << gpio);
+
+  ESP_REG(DR_REG_IO_MUX_BASE + esp32_gpioMux[gpio].reg) // Register lookup
+    = ((uint32_t)2 << FUN_DRV_S)                        // Set drive strength 2
+    | (FUN_IE)                                          // Input enable
+    | ((uint32_t)2 << MCU_SEL_S);                       // Function select 2
+  GPIO.pin[gpio].val = 1;                               // Set pin HIGH
 }
 ////////////////////////////////////////////////////////////////////////////////////////
 #endif // #ifdef TFT_PARALLEL_8_BIT
@@ -514,11 +527,7 @@ void TFT_eSPI::pushSwapBytePixels(const void* data_in, uint32_t len){
 ** Description:             Write a block of pixels of the same colour
 ***************************************************************************************/
 void TFT_eSPI::pushBlock(uint16_t color, uint32_t len){
-  #if defined (SSD1963_DRIVER)
-  if ( ((color & 0xF800)>> 8) == ((color & 0x07E0)>> 3) && ((color & 0xF800)>> 8)== ((color & 0x001F)<< 3) )
-  #else
   if ( (color >> 8) == (color & 0x00FF) )
-  #endif
   { if (!len) return;
     tft_Write_16(color);
   #if defined (SSD1963_DRIVER)

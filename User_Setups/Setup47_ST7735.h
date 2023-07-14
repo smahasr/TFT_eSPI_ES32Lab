@@ -1,5 +1,4 @@
 // Config for two ST7735 128 x 128 displays for Animated_Eyes example
-#define USER_SETUP_ID 47
 
 #define ST7735_DRIVER     // Configure all registers
 

@@ -1,5 +1,3 @@
-#define USER_SETUP_ID 51
-
 #define ILI9481_DRIVER
 
 #define TFT_BL   12				// LED back-light control pin
