@@ -1,11 +1,15 @@
-#define ST7735_DRIVER      // Define additional parameters below for this display
+#define ILI9341_DRIVER // For ILI9341 driver, if your display uses it
 
-#define TFT_DC   2  // A0/DC   Data Command control pin
-#define TFT_CS   15  // CS      Chip select control pin
-#define TFT_MOSI 23  // SDA
-#define TFT_SCLK 18  // SCK/SCL
-#define TFT_BL   -1  // LED/BLK LED back-light (required for M5Stack)
-#define TFT_RST  -1  // RST     Reset pin (could connect to RST pin) - 
+#define TFT_CS    15  // Chip select control pin
+#define TFT_DC    2   // Data/Command control pin
+#define TFT_RST   4   // Reset pin (optional, can connect to ESP32 reset)
+
+#define TFT_MOSI 23
+#define TFT_SCLK 18
+#define TFT_MISO 19
+
+#define TOUCH_CS 21   // Chip select for the touch screen (if it has touch)
+ 
 
 #define LOAD_GLCD   // Font 1. Original Adafruit 8 pixel font needs ~1820 bytes in FLASH
 #define LOAD_FONT2  // Font 2. Small 16 pixel high font, needs ~3534 bytes in FLASH, 96 characters
