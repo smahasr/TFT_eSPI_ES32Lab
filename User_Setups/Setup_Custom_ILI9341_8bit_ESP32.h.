@@ -1,0 +1,26 @@
+// Setup for ESP-WROOM-32 with 8-bit parallel display
+#define ILI9341_DRIVER    // Define the driver for ILI9341
+
+// Define the pins used for the parallel interface
+#define TFT_PARALLEL_8_BIT  // Use 8-bit parallel interface
+
+// ESP32 Pins used for control
+#define TFT_CS   5   // Chip select control pin
+#define TFT_RST  4   // Reset pin
+#define TFT_DC   16  // Data/command control pin
+#define TFT_WR   17  // Write strobe control pin
+
+// Data pins (D0 - D7) for the 8-bit parallel interface
+#define TFT_D0   32  // Data bit 0
+#define TFT_D1   33  // Data bit 1
+#define TFT_D2   25  // Data bit 2
+#define TFT_D3   26  // Data bit 3
+#define TFT_D4   27  // Data bit 4
+#define TFT_D5   14  // Data bit 5
+#define TFT_D6   12  // Data bit 6
+#define TFT_D7   13  // Data bit 7
+
+// Touch screen pins (if applicable)
+// You may need to add touch screen configuration here if you are using touch functionality
+
+// Font and other settings (optional, can remain unchanged)
